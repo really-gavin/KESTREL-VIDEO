@@ -1,1 +1,2 @@
 # Kestrel video catalog, newest first: id|seconds|date|channel|title
+test-video|12|2026-10-13|Kestrel|Kestrel test video

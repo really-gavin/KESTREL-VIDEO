@@ -13,6 +13,13 @@ comments/<id>.txt   comments   (written by the Kestrel gateway, not by hand)
 likes/<id>.txt      likes      (written by the Kestrel gateway; keyed hashes, no addresses)
 ```
 
+## Watching in a browser (GitHub Pages)
+
+This repository is also a website: `index.html` and `kmv.js` (a JavaScript port of the Kestrel decoder, checked bit for bit against the C one) play the
+same videos in any modern browser, with the same likes and comments. Turn it on once under **Settings > Pages > Build and deployment > Deploy from a
+branch > `main` / `(root)`**; the site is then at `https://really-gavin.github.io/KESTREL-VIDEO/` (a video is `#its-id` after that address).
+Nothing needs building: pushing a video updates the page. The page only talks to this repository's own files and the Kestrel gateway.
+
 The catalog starts empty: Tube shows "Nothing to watch yet" until the first video is added.
 
 ## Adding a video (on a PC with ffmpeg and the `kmv` tool from the Kestrel source, `tools/kmv`)

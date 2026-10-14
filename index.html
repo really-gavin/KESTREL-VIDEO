@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel Video</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --line:#262b35; --text:#e8eaf0; --dim:#8b93a3; --acc:#4da3ff; --hot:#ff5d73; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 5; }
+  header a.logo { color: var(--text); text-decoration: none; font-weight: 700; font-size: 18px; letter-spacing: .3px; }
+  header a.logo span { color: var(--acc); }
+  header input { flex: 1; max-width: 420px; margin-left: auto; padding: 8px 12px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); color: var(--text); font: inherit; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px 14px; }
+  .card { cursor: pointer; text-decoration: none; color: inherit; display: block; }
+  .thumb { position: relative; aspect-ratio: 16/9; background: var(--panel); border-radius: 10px; overflow: hidden; }
+  .thumb canvas { width: 100%; height: 100%; display: block; object-fit: cover; }
+  .thumb .len { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.75); padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+  .card h3 { margin: 8px 2px 0; font-size: 15px; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card p { margin: 2px 2px 0; color: var(--dim); font-size: 13px; }
+  .empty { text-align: center; color: var(--dim); padding: 80px 16px; }
+  .watch { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; }
+  @media (max-width: 900px) { .watch { grid-template-columns: 1fr; } }
+  .player { position: relative; background: #000; border-radius: 10px; overflow: hidden; user-select: none; }
+  .player canvas { width: 100%; display: block; background: #000; }
+  .player:fullscreen { border-radius: 0; display: flex; flex-direction: column; justify-content: center; }
+  .player:fullscreen canvas { max-height: 100vh; object-fit: contain; }
+  .big { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .big i { width: 76px; height: 76px; border-radius: 50%; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; }
+  .big i::after { content: ""; border-left: 24px solid #fff; border-top: 15px solid transparent; border-bottom: 15px solid transparent; margin-left: 6px; }
+  .big.hide { display: none; }
+  .status { position: absolute; left: 10px; top: 10px; background: rgba(0,0,0,.65); padding: 2px 8px; border-radius: 4px; font-size: 12px; display: none; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #111319; }
+  .bar button { background: none; border: 0; color: var(--text); font-size: 18px; cursor: pointer; width: 30px; height: 30px; padding: 0; }
+  .bar .t { font-size: 12px; color: var(--dim); min-width: 84px; text-align: center; font-variant-numeric: tabular-nums; }
+  .seek { position: relative; flex: 1; height: 24px; display: flex; align-items: center; }
+  .seek .rail { position: absolute; left: 0; right: 0; height: 4px; background: #2a2f3a; border-radius: 2px; overflow: hidden; }
+  .seek .buf { position: absolute; left: 0; top: 0; bottom: 0; background: #4a5263; width: 0; }
+  .seek .pos { position: absolute; left: 0; top: 0; bottom: 0; background: var(--acc); width: 0; }
+  .seek input { position: relative; width: 100%; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; height: 24px; }
+  .seek input::-webkit-slider-runnable-track { background: transparent; height: 24px; }
+  .seek input::-moz-range-track { background: transparent; }
+  .seek input::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; margin-top: 6px; }
+  .seek input::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: 0; }
+  .vol { width: 80px; }
+  h1 { font-size: 20px; margin: 14px 0 4px; }
+  .meta { color: var(--dim); font-size: 13px; }
+  .row { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  .btn { background: var(--panel); border: 1px solid var(--line); color: var(--text); padding: 7px 14px; border-radius: 18px; cursor: pointer; font: inherit; }
+  .btn.on { background: var(--hot); border-color: var(--hot); color: #fff; }
+  .desc { background: var(--panel); border-radius: 10px; padding: 12px 14px; white-space: pre-wrap; word-break: break-word; }
+  .comments h2, .next h2 { font-size: 16px; margin: 18px 0 8px; }
+  .comments form { display: grid; gap: 8px; margin-bottom: 14px; }
+  .comments input, .comments textarea { background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 8px; padding: 8px 10px; font: inherit; width: 100%; }
+  .comment { padding: 8px 0; border-top: 1px solid var(--line); word-break: break-word; }
+  .comment b { font-size: 13px; } .comment small { color: var(--dim); margin-left: 6px; }
+  .note { color: var(--dim); font-size: 13px; }
+  .next .card { display: grid; grid-template-columns: 150px 1fr; gap: 10px; margin-bottom: 10px; }
+  .next .card h3 { margin: 0; font-size: 14px; }
+  .next .card p { margin: 2px 0 0; }
+  footer { text-align: center; color: var(--dim); font-size: 12px; padding: 24px 16px 40px; }
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="#">Kestrel <span>Video</span></a>
+  <input id="q" type="search" placeholder="Search" autocomplete="off">
+</header>
+<main id="app"></main>
+<footer>Kestrel video engine &middot; plays <code>.kesmovie</code> files, in Kestrel OS and in this page</footer>
+
+<script src="kmv.js"></script>
+<script>
+"use strict";
+(function () {
+  const GATE = "https://kestrel.gavin-c-carlton.workers.dev/video/";   // likes and comments (the Kestrel gateway)
+  const app = document.getElementById("app"), search = document.getElementById("q");
+  let catalog = [], loaded = false, loadErr = "", cleanup = null, autoplay = false, audioCtx = null;
+
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+  const fmt = (s) => { s = Math.max(0, Math.floor(s)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  const store = { get(k) { try { return localStorage.getItem(k) || ""; } catch (e) { return ""; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 }); }
+      catch (e) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e2) { audioCtx = null; } }
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  // ---------------------------------------------------------------- catalog
+  async function loadCatalog() {
+    try {
+      const r = await fetch("catalog.txt", { cache: "no-cache" });
+      if (!r.ok) throw new Error("catalog.txt: " + r.status);
+      catalog = (await r.text()).replace(/\r/g, "").split("\n").filter((l) => l && l[0] !== "#").map((l) => {
+        const f = l.split("|"); return f.length >= 5 ? { id: f[0], secs: +f[1] || 0, date: f[2], channel: f[3], title: f.slice(4).join("|") } : null;
+      }).filter(Boolean);
+    } catch (e) { loadErr = String(e.message || e); }
+    loaded = true;
+  }
+
+  // a thumbnail is a one-frame movie
+  async function drawThumb(canvas, id) {
+    try {
+      const r = await fetch("thumbs/" + encodeURIComponent(id) + ".kmv");
+      if (!r.ok) return;
+      const m = new KMV.Movie(new Uint8Array(await r.arrayBuffer()));
+      const inf = m.info, d = new KMV.Decoder(inf.w, inf.h), c = m.chunk(0);
+      const pic = c && d.decode(c.video);
+      if (!pic) return;
+      const img = new ImageData(inf.w, inf.h);
+      KMV.toRGBA(pic, inf.w, inf.h, img.data);
+      canvas.width = inf.w; canvas.height = inf.h;
+      canvas.getContext("2d").putImageData(img, 0, 0);
+    } catch (e) {}
+  }
+
+  function card(v) {
+    const a = el("a", "card"); a.href = "#" + v.id;
+    a.addEventListener("click", () => { autoplay = true; ensureAudio(); });
+    const t = el("div", "thumb"), cv = el("canvas"); cv.width = 320; cv.height = 180; t.appendChild(cv);
+    t.appendChild(el("span", "len", fmt(v.secs)));
+    a.appendChild(t); a.appendChild(el("h3", "", v.title));
+    a.appendChild(el("p", "", v.channel + " · " + v.date));
+    drawThumb(cv, v.id);
+    return a;
+  }
+
+  function home() {
+    app.textContent = "";
+    if (loadErr) { app.appendChild(el("div", "empty", "Could not load the video list (" + loadErr + ").")); return; }
+    if (!catalog.length) { app.appendChild(el("div", "empty", "Nothing to watch yet.")); return; }
+    const g = el("div", "grid"), draw = () => {
+      g.textContent = "";
+      const q = search.value.trim().toLowerCase();
+      const list = catalog.filter((v) => !q || (v.title + " " + v.channel).toLowerCase().includes(q));
+      if (!list.length) g.appendChild(el("div", "empty", "No videos match."));
+      for (const v of list) g.appendChild(card(v));
+    };
+    draw(); app.appendChild(g);
+    search.oninput = draw;
+  }
+
+  // ---------------------------------------------------------------- the player
+  function watch(id) {
+    const v = catalog.find((x) => x.id === id);
+    app.textContent = "";
+    if (!v) { app.appendChild(el("div", "empty", "There is no such video.")); return; }
+    const wantPlay = autoplay; autoplay = false;
+    const wrap = el("div", "watch"), left = el("div"), right = el("div");
+    wrap.appendChild(left); wrap.appendChild(right); app.appendChild(wrap);
+
+    const player = el("div", "player"), cv = el("canvas"), big = el("div", "big"), status = el("div", "status");
+    cv.width = 640; cv.height = 360; big.appendChild(el("i"));
+    const bar = el("div", "bar"), pp = el("button", "", "▶"), time = el("span", "t", "0:00 / " + fmt(v.secs));
+    const seekBox = el("div", "seek"), rail = el("div", "rail"), bufBar = el("div", "buf"), posBar = el("div", "pos");
+    rail.appendChild(bufBar); rail.appendChild(posBar);
+    const seek = el("input"); seek.type = "range"; seek.min = 0; seek.max = 1000; seek.value = 0; seek.step = 1;
+    seekBox.appendChild(rail); seekBox.appendChild(seek);
+    const mute = el("button", "", "🔊"), vol = el("input", "vol"); vol.type = "range"; vol.min = 0; vol.max = 100; vol.value = store.get("kv-vol") || 80;
+    const fs = el("button", "", "⛶");
+    bar.append(pp, time, seekBox, mute, vol, fs);
+    player.append(cv, big, status, bar); left.appendChild(player);
+
+    left.appendChild(el("h1", "", v.title));
+    left.appendChild(el("div", "meta", v.channel + " · " + v.date));
+    const row = el("div", "row"), like = el("button", "btn", "♥ Like"), likeN = el("span", "meta", "");
+    row.append(like, likeN); left.appendChild(row);
+    const desc = el("div", "desc"); desc.style.display = "none"; left.appendChild(desc);
+    const comments = el("div", "comments"); left.appendChild(comments);
+    const others = catalog.filter((x) => x.id !== id).slice(0, 8), next = el("div", "next");
+    if (others.length) { next.appendChild(el("h2", "", "Up next")); for (const o of others) next.appendChild(card(o)); }
+    right.appendChild(next);
+
+    fetch("meta/" + encodeURIComponent(id) + ".txt").then((r) => r.ok ? r.text() : "").then((t) => { t = t.trim(); if (t) { desc.textContent = t; desc.style.display = ""; } }).catch(() => {});
+
+    // ---- state
+    let movie = null, dec = null, buf = null, got = 0, total = 0, done = false, dead = false;
+    let avail = -1;                    // last frame whose chunk has fully arrived (consecutive from 0)
+    let next_ = 0;                     // next frame to decode
+    let lastPic = null, drawn = -1;    // picture of frame next_-1, and the frame number last painted
+    let playing = false, state = "loading";   // loading | paused | playing | buffering | ended
+    let base = 0, anchor = 0;          // media time `base` (s) was at clock time `anchor`
+    let aNext = 0, aTime = 0, sources = [], gain = null, ctx = null;
+    let seekTarget = 0, img = null;
+
+    const clock = () => (ctx ? ctx.currentTime : performance.now() / 1000);
+    const fps = () => movie.info.fpsNum / movie.info.fpsDen;
+    const mediaTime = () => (playing ? base + (clock() - anchor) : base);
+    const setStatus = (s) => { status.textContent = s; status.style.display = s ? "block" : "none"; };
+
+    function applyVol() {
+      const g = mute.dataset.m === "1" ? 0 : vol.value / 100;
+      if (gain) gain.gain.value = g * g;
+      mute.textContent = g === 0 ? "🔇" : "🔊";
+    }
+    vol.oninput = () => { store.set("kv-vol", vol.value); mute.dataset.m = "0"; applyVol(); };
+    mute.onclick = () => { mute.dataset.m = mute.dataset.m === "1" ? "0" : "1"; applyVol(); };
+
+    function stopAudio() { for (const s of sources) { try { s.onended = null; s.stop(); } catch (e) {} } sources = []; }
+
+    function paint() {
+      if (!lastPic || drawn === next_ - 1) return;
+      const i = movie.info;
+      if (!img) { cv.width = i.w; cv.height = i.h; img = new ImageData(i.w, i.h); }
+      KMV.toRGBA(lastPic, i.w, i.h, img.data);
+      cv.getContext("2d").putImageData(img, 0, 0);
+      drawn = next_ - 1;
+    }
+
+    function updateAvail() {
+      while (avail + 1 < movie.info.frames && movie.chunk(avail + 1)) avail++;
+    }
+
+    // decode forward until frame f has been decoded (or time/data runs out); returns false if data is missing
+    function decodeTo(f, budget) {
+      const t0 = performance.now();
+      while (next_ <= f) {
+        const c = movie.chunk(next_);
+        if (!c) return false;
+        const pic = dec.decode(c.video);
+        if (pic) { lastPic = pic; }
+        next_++;
+        if (performance.now() - t0 > budget) return true;
+      }
+      return true;
+    }
+
+    function scheduleAudio() {
+      const i = movie.info;
+      if (!ctx || !i.audioRate || !gain) return;
+      while (aNext < i.frames && aTime < clock() + 1.5) {
+        const c = movie.chunk(aNext);
+        if (!c) break;
+        const pcm = KMV.decodeAudio(c.audio, i.channels);
+        aNext++;
+        if (!pcm) continue;
+        const n = pcm.length / i.channels, ab = ctx.createBuffer(i.channels, n, i.audioRate);
+        for (let ch = 0; ch < i.channels; ch++) { const d = ab.getChannelData(ch); for (let k = 0; k < n; k++) d[k] = pcm[k * i.channels + ch] / 32768; }
+        const s = ctx.createBufferSource(); s.buffer = ab; s.connect(gain);
+        const when = Math.max(aTime, ctx.currentTime);
+        s.start(when); aTime = when + n / i.audioRate;
+        s.onended = () => { const k = sources.indexOf(s); if (k >= 0) sources.splice(k, 1); };
+        sources.push(s);
+      }
+    }
+
+    function startClock() {
+      ctx = ensureAudio();
+      if (ctx && !gain) { gain = ctx.createGain(); gain.connect(ctx.destination); applyVol(); }
+      stopAudio();
+      anchor = clock() + 0.08; aTime = anchor;
+      aNext = Math.min(movie.info.frames - 1, Math.max(0, Math.round(base * fps())));
+      playing = true; state = "playing"; setStatus("");
+      pp.textContent = "❚❚"; big.classList.add("hide");
+    }
+
+    function pause() {
+      if (playing) base = Math.max(0, (next_ - 1) / fps());
+      playing = false; stopAudio();
+      if (state === "playing" || state === "buffering") state = "paused";
+      pp.textContent = "▶"; setStatus("");
+    }
+
+    function play() {
+      if (!movie) return;
+      if (state === "ended") doSeek(0);
+      big.classList.add("hide");
+      startClock();
+    }
+
+    function doSeek(f) {
+      updateAvail();
+      f = Math.max(0, Math.min(f, avail));
+      if (avail < 0) return;
+      const wasPlaying = playing || state === "buffering";
+      stopAudio(); playing = false;
+      next_ = movie.keyBefore(f); seekTarget = f;
+      decodeTo(f, 1e9); paint();
+      base = f / fps(); drawn = next_ - 1;
+      state = "paused";
+      if (wasPlaying) startClock(); else { pp.textContent = "▶"; }
+      refreshUI();
+    }
+
+    function refreshUI() {
+      if (!movie) return;
+      const n = movie.info.frames, t = Math.min(mediaTime(), n / fps());
+      const f = Math.min(1, t / (n / fps()));
+      posBar.style.width = f * 100 + "%";
+      bufBar.style.width = (Math.max(0, avail + 1) / n) * 100 + "%";
+      if (document.activeElement !== seek) seek.value = Math.round(f * 1000);
+      time.textContent = fmt(t) + " / " + fmt(n / fps());
+    }
+
+    let raf = 0;
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      if (!movie) return;
+      updateAvail();
+      const n = movie.info.frames;
+      if (state === "playing") {
+        const target = Math.floor(mediaTime() * fps());
+        if (target >= n) {
+          decodeTo(n - 1, 1e9); paint();
+          state = "ended"; playing = false; stopAudio(); base = n / fps();
+          pp.textContent = "▶"; big.classList.remove("hide"); refreshUI(); return;
+        }
+        const ok = decodeTo(target, 14);
+        if (!ok) {   // the next frame has not arrived yet: wait for some of it
+          base = next_ / fps(); playing = false; stopAudio(); state = "buffering"; setStatus("Buffering");
+        } else {
+          paint(); scheduleAudio();
+        }
+      } else if (state === "buffering") {
+        const need = Math.min(n - 1, next_ + Math.ceil(fps() * 1.5));
+        if (avail >= need || done) { startClock(); }
+      }
+      refreshUI();
+    }
+
+    pp.onclick = () => { if (state === "playing" || state === "buffering") pause(); else play(); };
+    big.onclick = () => play();
+    cv.onclick = () => pp.onclick();
+    seek.oninput = () => { if (movie) doSeek(Math.floor((seek.value / 1000) * movie.info.frames)); };
+    fs.onclick = () => {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (player.requestFullscreen) player.requestFullscreen();
+      else if (player.webkitRequestFullscreen) player.webkitRequestFullscreen();
+    };
+    const key = (e) => {
+      if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target !== seek && e.target !== vol) return;
+      if (!movie) return;
+      if (e.key === " " || e.key === "k") { e.preventDefault(); pp.onclick(); }
+      else if (e.key === "ArrowRight") doSeek(Math.round(mediaTime() * fps() + 5 * fps()));
+      else if (e.key === "ArrowLeft") doSeek(Math.round(mediaTime() * fps() - 5 * fps()));
+      else if (e.key === "f") fs.onclick();
+      else if (e.key === "m") mute.onclick();
+    };
+    document.addEventListener("keydown", key);
+
+    // ---- download: the file arrives in pieces and is playable as soon as the first part is here
+    (async function download() {
+      setStatus("Loading");
+      try {
+        const r = await fetch("videos/" + encodeURIComponent(id) + ".kmv");
+        if (!r.ok) throw new Error("the video file is missing (" + r.status + ")");
+        total = +r.headers.get("content-length") || 0;
+        const start = (b, len) => {
+          if (movie) return;
+          const inf = KMV.parseHeader(b.subarray(0, KMV.HDR));
+          if (!inf) throw new Error("this is not a .kesmovie file");
+          if (len < inf.dataOff) return;
+          movie = new KMV.Movie(b); movie.have = len; dec = new KMV.Decoder(inf.w, inf.h);
+          state = "paused"; setStatus(""); cv.width = inf.w; cv.height = inf.h;
+        };
+        if (r.body && r.body.getReader && total) {
+          buf = new Uint8Array(total);
+          const rd = r.body.getReader();
+          for (;;) {
+            const { value, done: d } = await rd.read();
+            if (dead) { try { rd.cancel(); } catch (e) {} return; }
+            if (d) break;
+            buf.set(value, got); got += value.length;
+            if (!movie && got >= KMV.HDR) { try { start(buf, got); } catch (e) { throw e; } }
+            if (movie) { movie.have = got; if (drawn < 0 && state === "paused" && !playing) { updateAvail(); if (avail >= 0) { next_ = 0; decodeTo(0, 1e9); paint(); if (wantPlay) play(); } } }
+          }
+          done = true; if (movie) { movie.have = got; updateAvail(); }
+        } else {
+          const ab = new Uint8Array(await r.arrayBuffer());
+          if (dead) return;
+          buf = ab; got = ab.length; start(buf, got); movie.have = got; done = true; updateAvail();
+          next_ = 0; decodeTo(0, 1e9); paint(); if (wantPlay) play();
+        }
+        if (!movie) throw new Error("the video file is incomplete");
+      } catch (e) { setStatus("Cannot play: " + (e.message || e)); state = "error"; }
+    })();
+    raf = requestAnimationFrame(tick);
+
+    // ---- likes and comments (the Kestrel gateway; answers are plain text)
+    async function call(path, lines) {
+      const r = await fetch(GATE + path, { method: "POST", headers: { "Content-Type": "text/plain" }, body: lines.join("\n") });
+      const t = await r.text();
+      if (t.slice(0, 2) !== "OK") throw new Error(t.replace(/^ERR\s*/, "").trim() || "the service said no");
+      const L = t.split("\n").slice(1), o = { likes: 0, comments: 0, liked: false, list: [] };
+      for (const l of L) {
+        let m;
+        if ((m = /^likes=(\d+)$/.exec(l))) o.likes = +m[1];
+        else if ((m = /^comments=(\d+)$/.exec(l))) o.comments = +m[1];
+        else if ((m = /^liked=([01])$/.exec(l))) o.liked = m[1] === "1";
+        else if (l) { const f = l.split("|"); if (f.length >= 3) o.list.push({ date: f[0], name: f[1], text: f.slice(2).join("|") }); }
+      }
+      return o;
+    }
+    let liked = false;
+    const showInfo = (o) => {
+      liked = o.liked; like.classList.toggle("on", liked);
+      likeN.textContent = o.likes + (o.likes === 1 ? " like" : " likes");
+      list.textContent = "";
+      head.textContent = o.comments + (o.comments === 1 ? " comment" : " comments");
+      for (const c of o.list) {
+        const d = el("div", "comment"), b = el("b", "", c.name); b.appendChild(el("small", "", c.date));
+        d.appendChild(b); d.appendChild(el("div", "", c.text)); list.appendChild(d);
+      }
+    };
+    const head = el("h2", "", "Comments"), list = el("div"), note = el("div", "note", "");
+    const form = el("form"), nm = el("input"), tx = el("textarea"), send = el("button", "btn", "Comment");
+    nm.placeholder = "Your name"; nm.maxLength = 24; nm.value = store.get("kv-name");
+    tx.placeholder = "Add a comment"; tx.maxLength = 240; tx.rows = 2; send.type = "submit";
+    form.append(nm, tx, send);
+    comments.append(head, form, note, list);
+    call("info", [id]).then(showInfo).catch((e) => { likeN.textContent = ""; note.textContent = "Likes and comments are not available right now (" + e.message + ")."; });
+    like.onclick = async () => {
+      like.disabled = true;
+      try { showInfo(await call("like", [id, liked ? "0" : "1"])); note.textContent = ""; } catch (e) { note.textContent = e.message; }
+      like.disabled = false;
+    };
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const name = nm.value.trim().replace(/[\r\n|]/g, " "), text = tx.value.trim().replace(/[\r\n|]/g, " ");
+      if (!name || !text) { note.textContent = "Please write your name and a comment."; return; }
+      store.set("kv-name", name); send.disabled = true;
+      try { showInfo(await call("comment", [id, name, text])); tx.value = ""; note.textContent = ""; } catch (er) { note.textContent = er.message; }
+      send.disabled = false;
+    };
+
+    cleanup = () => {
+      dead = true; cancelAnimationFrame(raf); stopAudio(); document.removeEventListener("keydown", key);
+      if (document.fullscreenElement) document.exitFullscreen();
+    };
+  }
+
+  // ---------------------------------------------------------------- routing
+  function route() {
+    if (cleanup) { cleanup(); cleanup = null; }
+    search.oninput = null;
+    const id = decodeURIComponent(location.hash.replace(/^#/, ""));
+    window.scrollTo(0, 0);
+    if (!loaded) { app.textContent = ""; app.appendChild(el("div", "empty", "Loading…")); return; }
+    if (id) watch(id); else home();
+  }
+  window.addEventListener("hashchange", route);
+  route();
+  loadCatalog().then(route);
+})();
+</script>
+</body>
+</html>
