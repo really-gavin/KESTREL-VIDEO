@@ -85,7 +85,9 @@
 <script>
 "use strict";
 (function () {
-  const ROOT = "https://kestrel.gavin-c-carlton.workers.dev/";          // the Kestrel gateway: accounts, likes and comments
+  // served by the Kestrel server itself (or tested locally): same-origin paths; anywhere else: the Kestrel server's address
+  const HOME = /(^|\.)reallygavin\.dev$|^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  const ROOT = HOME ? "" : "https://kestrel.reallygavin.dev/";
   const GATE = ROOT + "video/";
   const app = document.getElementById("app"), search = document.getElementById("q");
   let catalog = [], loaded = false, loadErr = "", cleanup = null, autoplay = false, audioCtx = null;
@@ -153,7 +155,7 @@
   // ---------------------------------------------------------------- catalog
   async function loadCatalog() {
     try {
-      const r = await fetch("catalog.txt", { cache: "no-cache" });
+      const r = await fetch(ROOT + "catalog.txt", { cache: "no-cache" });
       if (!r.ok) throw new Error("catalog.txt: " + r.status);
       catalog = (await r.text()).replace(/\r/g, "").split("\n").filter((l) => l && l[0] !== "#").map((l) => {
         const f = l.split("|"); return f.length >= 5 ? { id: f[0], secs: +f[1] || 0, date: f[2], channel: f[3], title: f.slice(4).join("|") } : null;
@@ -165,7 +167,7 @@
   // a thumbnail is a one-frame movie
   async function drawThumb(canvas, id) {
     try {
-      const r = await fetch("thumbs/" + encodeURIComponent(id) + ".kmv");
+      const r = await fetch(ROOT + "thumbs/" + encodeURIComponent(id) + ".kmv");
       if (!r.ok) return;
       const m = new KMV.Movie(new Uint8Array(await r.arrayBuffer()));
       const inf = m.info, d = new KMV.Decoder(inf.w, inf.h), c = m.chunk(0);
@@ -237,7 +239,7 @@
     if (others.length) { next.appendChild(el("h2", "", "Up next")); for (const o of others) next.appendChild(card(o)); }
     right.appendChild(next);
 
-    fetch("meta/" + encodeURIComponent(id) + ".txt").then((r) => r.ok ? r.text() : "").then((t) => { t = t.trim(); if (t) { desc.textContent = t; desc.style.display = ""; } }).catch(() => {});
+    fetch(ROOT + "meta/" + encodeURIComponent(id) + ".txt").then((r) => r.ok ? r.text() : "").then((t) => { t = t.trim(); if (t) { desc.textContent = t; desc.style.display = ""; } }).catch(() => {});
 
     // ---- state
     let movie = null, dec = null, buf = null, got = 0, total = 0, done = false, dead = false;
@@ -408,7 +410,7 @@
     (async function download() {
       setStatus("Loading");
       try {
-        const r = await fetch("videos/" + encodeURIComponent(id) + ".kmv");
+        const r = await fetch(ROOT + "videos/" + encodeURIComponent(id) + ".kmv");
         if (!r.ok) throw new Error("the video file is missing (" + r.status + ")");
         total = +r.headers.get("content-length") || 0;
         const start = (b, len) => {
