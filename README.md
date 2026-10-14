@@ -9,6 +9,7 @@ catalog.txt         the list of all videos, one line per video, newest first:  i
 videos/<id>.kmv     the movie (a .kesmovie file)
 thumbs/<id>.kmv     its picture (a one-frame .kesmovie)
 meta/<id>.txt       its description
+owners/<id>.txt     who published it (written by the gateway; videos added by hand have none)
 comments/<id>.txt   comments   (written by the Kestrel gateway, not by hand)
 likes/<id>.txt      likes      (written by the Kestrel gateway; keyed hashes, no addresses)
 ```
@@ -22,7 +23,13 @@ Nothing needs building: pushing a video updates the page. The page only talks to
 
 The catalog starts empty: Tube shows "Nothing to watch yet" until the first video is added.
 
-## Adding a video (on a PC with ffmpeg and the `kmv` tool from the Kestrel source, `tools/kmv`)
+## Accounts: anyone can publish as their own channel
+
+With a **Kestrel Account** (`account create` in Kestrel OS, or `kmv signup` on a PC) you do not need this repository at all: `kmv publish -upload -id my-video
+-title "My video" video.mp4` sends the video through the Kestrel gateway, which commits it here for you. Your channel is your account name; the gateway
+records you as the owner in `owners/<id>.txt`, and only you can replace or remove it. See `docs/ACCOUNT.md` in the Kestrel source.
+
+## Adding a video as the repository owner (on a PC with ffmpeg and the `kmv` tool from the Kestrel source, `tools/kmv`)
 
 ```
 git clone https://github.com/really-gavin/KESTREL-VIDEO
